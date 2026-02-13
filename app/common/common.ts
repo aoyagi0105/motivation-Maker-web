@@ -1,0 +1,1 @@
+export const baseURL = 'https://motivation-maker-backend-production.up.railway.app/';
