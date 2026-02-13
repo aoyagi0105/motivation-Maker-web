@@ -1,24 +1,30 @@
 "use client"
 
-import axios from "axios";
 import { useState } from "react";
-import { baseURL } from "../common/common";
+import { api } from "../../lib/api";
+import { useRouter } from 'next/navigation';
 
 export default function Login() {
     const [id, setId] = useState("");
     const [pw, setPw] = useState("");
+    const router = useRouter();
 
     async function login(id: string, pw: string) {
+        console.log('BASE_url: ', process.env.NEXT_PUBLIC_BASE_URL)
         console.log('id:' + id);
         console.log('pw:' + pw);
         try {
-            const res = await axios.post(baseURL + "users/login", {
+            const res = await api.post("users/login", {
                 userId: id,
                 password: pw
             });
-            localStorage.setItem("accessToken", res.data.token.access)
+            localStorage.setItem("accessToken", res.data.token.access);
 
-            console.log('res:' + res.data);
+            if (res.status === 200) {
+                router.push('/motivation')
+            }
+
+            console.log('res.status:', res.status);
         } catch (e: any) {
             console.log("message:", e?.message);
             console.log("status:", e?.response?.status);
