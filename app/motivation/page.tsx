@@ -1,35 +1,171 @@
 "use client"
 
-
 import { useEffect, useState } from "react";
 import { api } from "../../lib/api";
+import { useAppDispatch, } from "@/lib/hooks";
+import { setIsFavored } from "@/lib/store/slices/favoriteSlice";
+import { Langs } from "@/lib/language";
+import axios from "axios";
 import { useRouter } from 'next/navigation';
 
 export default function Motivation() {
+    const dispatch = useAppDispatch();
+    const [lastMotivationId, setLastMotivationId] = useState<number | null>();
+    const [language, setLanguage] = useState<string | undefined>("");
+    const [motivationText, setMotivationText] = useState<string | null>('');
+    const [motivationAuthor, setMotivationAuthor] = useState<string | null>('');
+    const [isModalOpen, setIsModalOpen] = useState(false);
+
+    const router = useRouter();
 
     useEffect(() => {
+        const savedMotivationId = Number(localStorage.getItem('lastMotivationId'));
+        const savedLang = localStorage.getItem('language');
+        setLastMotivationId(savedMotivationId);
+        if (savedLang) {
+            setLanguage(savedLang);
+        }
 
         async function getMotivation() {
             try {
                 const res = await api.get('motivation/nextMotivation', {
                     params: {
-
+                        lastMotivationId: savedMotivationId,
+                        isMotivationScreen: true,
+                        language: savedLang
                     }
-                })
+                });
+
+                setMotivationText(res.data.text.text);
+                setMotivationAuthor(res.data.author.text);
+                dispatch(setIsFavored(res.data.isFavored));
             } catch (e: any) {
                 console.log("message:", e?.message);
-                console.log("status:", e?.response?.status);
-                console.log("data:", e?.response?.data);
-                console.log("request url:", e?.config?.url);
             }
         }
         getMotivation();
-    })
+    }, [language]);
+
+    async function nextMotivation() {
+        try {
+            const nextMotivationId = lastMotivationId! + 1;
+            const res = await api.get('motivation/nextMotivation', {
+                params: {
+                    lastMotivationId: nextMotivationId,
+                    isMotivationScreen: true,
+                    language
+                },
+            });
+
+            setMotivationText(res.data.text.text);
+            setMotivationAuthor(res.data.author.text);
+            dispatch(setIsFavored(res.data.isFavored));
+
+            localStorage.setItem("lastMotivationId", nextMotivationId.toString());
+            setLastMotivationId(nextMotivationId);
+        } catch (e) {
+            console.log(e)
+        }
+    }
+
+
+    function changeLanguage(selectLanguage: string) {
+        localStorage.setItem("language", selectLanguage);
+        setLanguage(selectLanguage);
+        api.patch('users/changeLanguage', {
+            language
+        })
+    }
+
+    function onPressSignOut() {
+        setIsModalOpen(true);
+    }
+
+    async function confirmSignOut() {
+        localStorage.clear();
+        await axios.post("/api/auth/signOut");
+        router.push('/');
+    }
 
 
     return (
-        <div>
+        <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 p-4 font-sans text-slate-900">
+            {/* --- 로그아웃 모달 --- */}
+            {isModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className="bg-white p-6 rounded-3xl shadow-2xl border w-full max-w-sm flex flex-col items-center gap-6 animate-in fade-in zoom-in duration-200">
+                        <div className="text-center">
+                            <h2 className="text-xl font-bold mb-2">Sign Out</h2>
+                            <p className="text-slate-500">Would you really like to signOut?</p>
+                        </div>
+                        <div className="flex gap-3 w-full">
+                            <button
+                                className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl transition-all font-medium"
+                                onClick={() => setIsModalOpen(false)}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                className="flex-1 py-3 bg-red-500 hover:bg-red-600 text-white rounded-2xl transition-all font-medium shadow-lg shadow-red-200"
+                                onClick={() => confirmSignOut()}
+                            >
+                                Sign Out
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
+            {/* --- 메인 카드 섹션 --- */}
+            <div className="w-full max-w-md bg-white rounded-4xl shadow-xl shadow-slate-200/60 p-10 border border-slate-100 flex flex-col gap-10">
+
+                {/* 명언 영역 */}
+                <div className="flex flex-col gap-6 text-center min-h-40 justify-center">
+                    <p className="text-2xl md:text-3xl font-medium leading-relaxed italic text-slate-800">
+                        "{motivationText || "Now loading..."}"
+                    </p>
+                    <p className="text-slate-400 font-medium">
+                        — {motivationAuthor}
+                    </p>
+                </div>
+
+                {/* 하단 컨트롤 영역 */}
+                <div className="flex flex-col gap-4">
+                    {/* Next 버튼 */}
+                    <button
+                        onClick={() => nextMotivation()}
+                        className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white rounded-2xl transition-all font-semibold text-lg shadow-lg shadow-indigo-100"
+                    >
+                        Next Motivation
+                    </button>
+
+                    <div className="flex items-center gap-2">
+                        {/* 언어 선택 */}
+                        <select
+                            className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all cursor-pointer"
+                            value={language}
+                            onChange={(e) => changeLanguage(e.target.value)}
+                        >
+                            <option value="" disabled>Select Language</option>
+                            {Langs.map((lang) => (
+                                <option key={lang.value} value={lang.value}>
+                                    {lang.label}
+                                </option>
+                            ))}
+                        </select>
+
+                        {/* 로그아웃 버튼 */}
+                        <button
+                            onClick={() => onPressSignOut()}
+                            className="p-3 bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-100 rounded-xl transition-all"
+                            title="Sign Out"
+                        >
+                            {/* 아이콘 대신 텍스트 혹은 기호 사용 가능 */}
+                            <span className="text-sm font-medium">Exit</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }
