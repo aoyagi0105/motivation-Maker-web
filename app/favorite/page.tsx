@@ -7,36 +7,29 @@ import axios from "axios";
 import { useRouter } from 'next/navigation';
 import { Heart } from 'lucide-react';
 
-export default function Motivation() {
-    const [lastMotivationId, setLastMotivationId] = useState<number>(0);
-    const [language, setLanguage] = useState<string | undefined>("");
+export default function Favorite() {
+    const [language, setLanguage] = useState<string>("");
     const [motivationText, setMotivationText] = useState<string | null>('');
     const [motivationAuthor, setMotivationAuthor] = useState<string | null>('');
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isFavored, setIsFavored] = useState<boolean>(false);
-
+    const [motiCount, setMotiCount] = useState(0);
     const router = useRouter();
 
     useEffect(() => {
-        const savedMotivationId = Number(localStorage.getItem('lastMotivationId'));
-        const savedLang = localStorage.getItem('language');
-        setLastMotivationId(savedMotivationId);
-        if (savedLang) {
-            setLanguage(savedLang);
-        }
-
         async function getMotivation() {
             try {
-                const res = await api.get('motivation/nextMotivation', {
-                    params: {
-                        lastMotivationId: savedMotivationId,
-                        isMotivationScreen: true,
-                        language: savedLang
-                    }
-                });
+                const savedLang = localStorage.getItem('language');
+                if (!savedLang) return;
+                if (savedLang) {
+                    setLanguage(savedLang);
+                }
 
-                setMotivationText(res.data.text.text);
-                setMotivationAuthor(res.data.author.text);
+                const favIdsArray = getFavMotiIds();
+                if (!favIdsArray) return;
+                const isFav = favIdsArray.includes(favIdsArray[motiCount]);
+                setIsFavored(isFav);
+                await setMotivation(favIdsArray[motiCount], savedLang);
             } catch (e: any) {
                 console.log("message:", e?.message);
             }
@@ -44,52 +37,79 @@ export default function Motivation() {
         getMotivation();
     }, [language]);
 
-    useEffect(() => {
-        if (!lastMotivationId) return;
+
+
+    function getFavMotiIds() {
         const favIds = localStorage.getItem('favoriteMotivationIds');
-        if (favIds) {
-            const favIdsArray = favIds.split(',').map(item => item.trim());
-            const isFavId = favIdsArray.includes(lastMotivationId.toString());
-            setIsFavored(isFavId);
-        }
-    }, [lastMotivationId]);
+        if (!favIds) return;
+        const favIdsArray = favIds.split(',').map(item => item.trim());
+        // setFavMotiIds(favIdsArray);
+        return favIdsArray;
+    }
+
+    async function setMotivation(motivationId: string, language: string) {
+        const res = await api.get('motivation/nextMotivation', {
+            params: {
+                lastMotivationId: motivationId,
+                language
+            },
+        });
+
+        setMotivationText(res.data.text.text);
+        setMotivationAuthor(res.data.author.text);
+    }
 
     async function nextMotivation() {
         try {
-            const nextMotivationId = lastMotivationId! + 1;
-            const res = await api.get('motivation/nextMotivation', {
-                params: {
-                    lastMotivationId: nextMotivationId,
-                    isMotivationScreen: true,
-                    language
-                },
-            });
+            const favIdsArray = getFavMotiIds();
+            if (!favIdsArray) return;
 
-            setMotivationText(res.data.text.text);
-            setMotivationAuthor(res.data.author.text);
+            const nextMotiCount = (motiCount + 1) % favIdsArray.length;
+            setMotiCount(nextMotiCount);
 
-            localStorage.setItem("lastMotivationId", nextMotivationId.toString());
-            setLastMotivationId(nextMotivationId);
+            const nextMotivationId = favIdsArray[nextMotiCount];
+            const isFav = favIdsArray.includes(nextMotivationId);
+            setIsFavored(isFav);
+            await setMotivation(nextMotivationId, language);
         } catch (e) {
             console.log(e)
         }
     }
 
+    async function favoriteToggle() {
+        const favIdsArray = getFavMotiIds();
+        if (!favIdsArray) {
+            return;
+        }
+        const motivationId = favIdsArray[motiCount];
+        const nextMotivationId = favIdsArray[motiCount + 1];
+        await api.post('/favorites/toggle', { motivationId });
 
-    function changeLanguage(selectLanguage: string) {
-        localStorage.setItem("language", selectLanguage);
-        setLanguage(selectLanguage);
-        api.patch('users/changeLanguage', {
-            language
-        })
+        const newFavIdsArray = favIdsArray.filter(data => data !== motivationId).join();
+        localStorage.setItem('favoriteMotivationIds', newFavIdsArray);
+
+        if (newFavIdsArray.length === 0) {
+            setMotivationAuthor('');
+            setMotivationText('There is no favorite motivation.');
+            setIsFavored(false);
+            return;
+        }
+
+        await setMotivation(nextMotivationId, language);
+        const isFav = favIdsArray.includes(nextMotivationId);
+        setIsFavored(isFav);
     }
+
+
+
+
 
     function onPressSignOut() {
         setIsModalOpen(true);
     }
 
-    function onPressFavoritePage() {
-        router.push('/favorite')
+    function onPressMotivation() {
+        router.push('/motivation')
     }
 
     async function confirmSignOut() {
@@ -98,15 +118,12 @@ export default function Motivation() {
         router.push('/');
     }
 
-    async function favoriteToggle() {
-        const toggleResponse = await api.post('/favorites/toggle', { motivationId: lastMotivationId });
-        const favoriteMotivationIds = await api.get('/favorites/favoriteMotivationIds');
-        if (typeof toggleResponse.data === 'boolean') {
-            setIsFavored(toggleResponse.data);
-        }
-
-        localStorage.setItem('favoriteMotivationIds', favoriteMotivationIds.data.toString());
-        localStorage.setItem('isFavored', toggleResponse.toString());
+    function changeLanguage(language: string) {
+        localStorage.setItem("language", language);
+        setLanguage(language);
+        api.patch('users/changeLanguage', {
+            language
+        })
     }
 
     return (
@@ -141,10 +158,10 @@ export default function Motivation() {
             <div className="w-full max-w-md bg-white rounded-4xl shadow-xl shadow-slate-200/60 p-10 border border-slate-100 flex flex-col gap-10">
                 <div className="flex gap-2 justify-center">
                     <div
-                        className="p-3 bg-white border border-slate-200 text-slate-400  rounded-xl transition-all"
+                        className="p-3 bg-white border border-slate-200 text-slate-400 rounded-xl transition-all"
                         title="title"
                     >
-                        <span className="text-xl  font-medium  text-slate-800 ">motivation</span>
+                        <span className="text-xl  font-medium  text-slate-800">My Favorite</span>
                     </div>
                 </div>
 
@@ -183,7 +200,8 @@ export default function Motivation() {
                         <select
                             className="flex-1 p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all cursor-pointer"
                             value={language}
-                            onChange={(e) => changeLanguage(e.target.value)}
+                            onChange={(e) => changeLanguage(e.target.value)
+                            }
                         >
                             <option value="" disabled>Select Language</option>
                             {Langs.map((lang) => (
@@ -195,12 +213,12 @@ export default function Motivation() {
 
                         {/* 즐겨찾기 페이지 이동 버튼 */}
                         <button
-                            onClick={() => onPressFavoritePage()}
+                            onClick={() => onPressMotivation()}
                             className="p-3 bg-white border border-slate-200 text-slate-400 hover:text-red-500 hover:border-red-100 rounded-xl transition-all"
                             title="Sign Out"
                         >
                             {/* 아이콘 대신 텍스트 혹은 기호 사용 가능 */}
-                            <span className="text-sm font-medium">My Favorite</span>
+                            <span className="text-sm font-medium">motivation</span>
                         </button>
 
                         {/* 로그아웃 버튼 */}
