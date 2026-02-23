@@ -25,6 +25,7 @@ export default function Login() {
 
             localStorage.setItem("accessToken", accessToken);
             localStorage.setItem("language", language);
+            localStorage.setItem("lastMotivationId", '1');
 
             router.push('/motivation');
         } catch (e: any) {

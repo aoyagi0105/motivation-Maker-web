@@ -26,7 +26,13 @@ export default function Favorite() {
                 }
 
                 const favIdsArray = getFavMotiIds();
-                if (!favIdsArray) return;
+                if (!favIdsArray) {
+                    setMotivationAuthor('');
+                    setMotivationText('There is no favorite motivation.');
+                    setIsFavored(false);
+                    return;
+                }
+
                 const isFav = favIdsArray.includes(favIdsArray[motiCount]);
                 setIsFavored(isFav);
                 await setMotivation(favIdsArray[motiCount], savedLang);
