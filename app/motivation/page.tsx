@@ -106,7 +106,6 @@ export default function Motivation() {
         }
 
         localStorage.setItem('favoriteMotivationIds', favoriteMotivationIds.data.toString());
-        localStorage.setItem('isFavored', toggleResponse.toString());
     }
 
     return (
