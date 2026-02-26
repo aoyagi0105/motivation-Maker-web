@@ -49,7 +49,6 @@ export default function Favorite() {
         const favIds = localStorage.getItem('favoriteMotivationIds');
         if (!favIds) return;
         const favIdsArray = favIds.split(',').map(item => item.trim());
-        // setFavMotiIds(favIdsArray);
         return favIdsArray;
     }
 

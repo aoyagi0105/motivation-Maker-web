@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import Image from 'next/image'
+import mIcon from '../public/img/motivation_maker_icon.png'
 
 export default function Home() {
   return (
@@ -7,8 +9,11 @@ export default function Home() {
       <div className="w-full max-w-sm bg-white rounded-[2.5rem] shadow-xl shadow-slate-200/60 p-12 border border-slate-100 flex flex-col items-center text-center">
 
         {/* 서비스 로고/아이콘 영역 (임시) */}
-        <div className="w-20 h-20 bg-indigo-600 rounded-3xl shadow-lg shadow-indigo-200 flex items-center justify-center mb-8 rotate-3">
-          <span className="text-white text-4xl font-bold italic">M</span>
+        <div className="w-20 h-20 rounded-3xl flex items-center justify-center mb-8 ">
+          <Image
+            src={mIcon}
+            alt='mIcon'
+          />
         </div>
 
         {/* 환영 문구 */}
